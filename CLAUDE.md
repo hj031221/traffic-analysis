@@ -6,7 +6,7 @@
 ## 사용자 선호
 
 - 질문 선택지를 포함해 사용자에게 보이는 텍스트는 모두 **한국어**로 쓴다.
-- 레포: https://github.com/hj031221/traffic (공개 레포, 브랜치 `main`)
+- 레포: https://github.com/hj031221/traffic-analysis (공개 레포, 브랜치 `main`)
 
 ## 새 컴퓨터에서 처음 할 일
 
