@@ -9,3 +9,4 @@ data/raw/*
 !data/raw/od_monthly/
 !data/raw/car_registration/
 !data/raw/population/
+!data/raw/user_type/

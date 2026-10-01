@@ -28,6 +28,7 @@
 | `route_usage/` | [STCIS 교통카드 빅데이터](https://stcis.go.kr) 노선·정류장 지표 → 노선별 이용량 | 지역 수원시, 노선 1개씩, 기간 최대 14일. 파일명 `{노선}_{시작일}_{종료일}.xlsx` |
 | `od_monthly/` | STCIS 이용객수요(O/D) 지표 | 출발 읍면동 1개 선택, 도착 전체, 기간 1개월(월 합계). 파일명 `od_{출발동}_{YYYY-MM}.xlsx` |
 | `car_registration/` | [국토교통 통계누리](https://stat.molit.go.kr) 자동차등록대수현황 시군구별 | 2022-01 ~ 2026-08, CSV |
+| `user_type/` | STCIS 수단통행량(이용자유형별) | 수원시 읍면동 전체, 2025-09-01~14 |
 | `population/` | [행정안전부 주민등록 인구통계](https://jumin.mois.go.kr) | 수원시 구·행정동, 월간, 2022-01 ~ 2026-08 |
 
 STCIS Open API(15분단위 OD)는 초기 검증에 사용했습니다. 사양과 호출 시 주의사항은 [`docs/api_spec.md`](docs/api_spec.md) 참고.
@@ -54,7 +55,8 @@ Windows PowerShell에서 한글 출력이 깨지면 먼저 `$env:PYTHONIOENCODIN
 | 7 | `analysis_od_did.py` | `did_results.csv` — 기존 대중교통 잠식률 DiD, 기준월 민감도 |
 | 8 | `analysis_car_registration.py` | `car_per_capita_gu.csv` |
 | 9 | `analysis_carbon_breakeven.py` | `carbon_breakeven_scenarios.csv`, `carbon_breakeven_curve.csv` — 탄소 손익분기 자가용 대체율 |
-| 10 | `make_figures.py` | `figures/fig1~5.png` |
+| 10 | `analysis_user_type.py` | `teen_share_bus.csv` — 일반 버스 청소년 비중(동·구역별) vs 똑버스 |
+| 11 | `make_figures.py` | `figures/fig1~5.png` |
 
 공통 설정(운행 구역 법정동, 비교군, 운행 개시일, 공휴일)은 `src/config.py`에 있습니다.
 
