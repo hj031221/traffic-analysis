@@ -193,8 +193,35 @@ def fig4():
     save(fig, "fig4_car_per_capita.png")
 
 
+# ---- 그림 5 -----------------------------------------------------------------
+def fig5():
+    c = pd.read_csv(PROCESSED / "carbon_breakeven_curve.csv")
+    fig, ax = plt.subplots(figsize=(7.2, 3.3))
+    ax.axvspan(2.43, 3.24, color=GRID, alpha=0.7, lw=0)
+    ax.text(2.835, 292, "수원 똑버스\n실제 평균 재차인원\n2.43~3.24명", ha="center", va="top", fontsize=7.5, color=INK2)
+    ax.axhline(100, color=INK2, lw=0.9, ls=(0, (4, 3)))
+    ax.text(5.95, 104, "이용자 전원이 자가용에서 와야 본전", ha="right", va="bottom", fontsize=7.5, color=INK2)
+    for fuel, col in [("경유", S1), ("전기", S2)]:
+        d = c[c["차량"] == fuel]
+        ax.fill_between(d["재차인원"], d["낙관"], d["비관"].clip(upper=300), color=col, alpha=0.15, lw=0)
+        ax.plot(d["재차인원"], d["중앙"], color=col)
+        y = d[d["재차인원"] == 4.6]["중앙"].iloc[0]
+        ax.text(4.65, y + 6, f"{fuel} 차량 (중앙값)", color=INK, fontsize=8, va="bottom")
+    ax.set_xlim(1, 6)
+    ax.set_ylim(0, 300)
+    ax.set_xlabel("똑버스 평균 재차인원 (명)")
+    ax.set_ylabel("손익분기 자가용 대체율 (%)")
+    ax.set_title("똑버스가 탄소를 줄이려면 이용자 중 몇 %가 자가용에서 와야 하나", loc="left")
+    fig.text(0.5, -0.04, "음영: 낙관~비관 가정 범위(연비·전비, 승용차 배출, 우회·공차 비율). 일반 자가용 통행 대체 기준, 보호자 라이드 대체 시 절반. "
+             "자료: 수원시정연구원(2024), 에너지공단 배출계수, 전력배출계수(2023), 환경부",
+             ha="center", fontsize=7, color=MUTED, wrap=True)
+    fig.tight_layout()
+    save(fig, "fig5_carbon_breakeven.png")
+
+
 if __name__ == "__main__":
     fig1()
     fig2()
     fig3()
     fig4()
+    fig5()

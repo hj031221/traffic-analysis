@@ -17,6 +17,7 @@
 | 보이는 것 | 4개 노선 하루 약 2,000명. 02는 평일 이용이 주말의 2.1배(출근·역 연계), 03은 방학 중 등하교 시간대 이용이 27% 감소(통학 성분) |
 | 보이지 않는 것 | 01번은 운행 후 10개월간 교통카드 데이터에 없음. 카드 데이터 편입 후에도 O/D·정류장 통계에는 반영되지 않는 것으로 추정(간접 증거 3개). 자동차 등록은 동 단위가 없고 구 단위는 등록지 왜곡 |
 | 최선의 추정 | 가정 하에서 똑버스 이용 중 기존 대중교통에서 넘어온 비율 0~36% (참고용) |
+| 탄소 | 똑버스가 탄소를 줄이려면 이용자 중 자가용 출신이 경유 차량은 중앙 가정에서 100% 초과(전원이 자가용 출신이어도 부족할 수 있음), 전기 차량 기준 약 42% 이상이어야 함. 현재 데이터로는 이 조건 충족 여부를 알 수 없음 |
 
 ## 데이터
 
@@ -52,7 +53,8 @@ Windows PowerShell에서 한글 출력이 깨지면 먼저 `$env:PYTHONIOENCODIN
 | 6 | `analysis_od_validation.py` | `od_validation_01.csv` — O/D에 똑버스가 포함되는지 01번 자연실험 |
 | 7 | `analysis_od_did.py` | `did_results.csv` — 기존 대중교통 잠식률 DiD, 기준월 민감도 |
 | 8 | `analysis_car_registration.py` | `car_per_capita_gu.csv` |
-| 9 | `make_figures.py` | `figures/fig1~4.png` |
+| 9 | `analysis_carbon_breakeven.py` | `carbon_breakeven_scenarios.csv`, `carbon_breakeven_curve.csv` — 탄소 손익분기 자가용 대체율 |
+| 10 | `make_figures.py` | `figures/fig1~5.png` |
 
 공통 설정(운행 구역 법정동, 비교군, 운행 개시일, 공휴일)은 `src/config.py`에 있습니다.
 
