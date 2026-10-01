@@ -1,6 +1,11 @@
 .env
-data/raw/
 __pycache__/
 *.pyc
 .venv/
 venv/
+# 원본 데이터: API 수집 캐시 등은 제외하고, 웹에서 받은 공개 통계 원본은 재현을 위해 포함
+data/raw/*
+!data/raw/route_usage/
+!data/raw/od_monthly/
+!data/raw/car_registration/
+!data/raw/population/

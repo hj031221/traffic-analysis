@@ -1,4 +1,5 @@
 python-dotenv
 requests
-pandas
+pandas>=2.0
 openpyxl
+matplotlib>=3.7
