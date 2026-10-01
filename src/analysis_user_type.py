@@ -6,7 +6,7 @@ STCIS '수단통행량(이용자유형별)' 수원시 읍면동 전체, 2025-09-
 수원시정연구원(2024) 보고서의 광교 똑버스 이용자 중 청소년 비중 20.3%와 비교한다.
 
 주의: 보고서 수치는 2023-06~2024-06 전체 요일 기준이고, 여기서는 2025-09 평일 기준이다.
-주말에는 청소년 비중이 낮으므로 평일 기준 일반 버스 비중은 비교에 보수적인 값이다.
+기간·요일 기준이 달라 배수 차이는 동일 모집단의 효과나 추세가 아니다.
 
 입력: data/raw/user_type/수단통행량_이용자유형_수원_읍면동_*.xlsx
 출력: data/processed/teen_share_bus.csv
@@ -14,7 +14,7 @@ STCIS '수단통행량(이용자유형별)' 수원시 읍면동 전체, 2025-09-
 
 import pandas as pd
 
-from config import CONTROLS, PROCESSED, RAW, ZONES
+from config import CONTROLS, HOLIDAYS, PROCESSED, RAW, ZONES
 
 DRT_TEEN_SHARE_GWANGGYO = 20.3  # 수원시정연구원(2024), 2023-06~2024-06 광교 똑버스
 
@@ -25,7 +25,8 @@ def main():
     d = d[d["시도코드"].astype(str) != "합계"].copy()
     for c in ["읍면동", "일", "이용자유형"]:
         d[c] = d[c].replace(0, pd.NA).ffill()
-    d = d[~d["일"].str[11].isin(["토", "일"])]
+    dates = pd.to_datetime(d["일"].str[:10], errors="raise")
+    d = d[dates.dt.dayofweek.lt(5) & ~dates.dt.strftime("%Y-%m-%d").isin(HOLIDAYS)]
     bus = d[d["교통수단"].isin(["시내", "마을"])]
 
     group = {dong: route for route, dongs in ZONES.items() for dong in dongs}
@@ -41,6 +42,7 @@ def main():
     out = pd.DataFrame(rows)
     out["청소년비중(%)"] = (out["청소년"] / out["전체"] * 100).round(1)
     out["똑버스 광교 대비(배)"] = (DRT_TEEN_SHARE_GWANGGYO / out["청소년비중(%)"]).round(1)
+    out["주의"] = "똑버스2023-06~2024-06전요일_vs_버스2025-09-01~14평일_비동시비교"
     out.to_csv(PROCESSED / "teen_share_bus.csv", index=False, encoding="utf-8-sig")
 
     print(f"광교 똑버스 청소년 비중(보고서): {DRT_TEEN_SHARE_GWANGGYO}%")

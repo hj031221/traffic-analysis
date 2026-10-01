@@ -1,89 +1,73 @@
-# 보이지 않는 버스: DRT 효과 평가의 데이터 사각지대
+# 보이지 않는 버스: 공개데이터로 본 수원 똑버스의 평가 한계와 개선 방향
 
-**수원시 똑버스 사례로 본 수요응답형 교통(DRT) 평가의 한계와 개선 방향**
-
-경기도 수요응답형 교통 **똑버스**가 자가용 이용을 줄이는지 검증하려 했으나, 현재 공공 교통 데이터로는 그 질문에 답할 수 없음을 확인했습니다. 이 레포는 (1) 데이터로 확인되는 것, (2) 데이터가 보여주지 못하는 것과 그 근거, (3) 현재 데이터로 가능한 최선의 추정을 재현 가능한 코드로 정리합니다.
-
-> 숲과나눔·한겨레 「데이터로 바꾸는 우리의 이동」 교통 데이터 분석 공모전 출품작
-
-주요 결과는 [`docs/findings.md`](docs/findings.md)에 정리했습니다.
-
-![운행 기간 vs 데이터 수록 기간](figures/fig2_data_blindspot.png)
+숲과나눔·한겨레 [AI와 함께하는 교통문제 해결을 위한 데이터 분석 공모전](https://koreashe.org/notice/?mod=document&uid=95427) 분석 프로젝트입니다. 수원 똑버스의 이용 패턴을 정리하고, 공개 집계의 정의와 분석대상 선택이 결과를 어떻게 바꾸는지 검증합니다. 개인의 수단전환율과 인과적 탄소 감축량은 추정하지 않습니다.
 
 ## 핵심 결과
 
-| | 내용 |
-|---|---|
-| 보이는 것 | 4개 노선 하루 약 2,000명. 02는 평일 이용이 주말의 2.1배(출근·역 연계), 03은 방학 중 등하교 시간대 이용이 27% 감소(통학 성분) |
-| 보이지 않는 것 | 01번은 운행 후 10개월간 교통카드 데이터에 없음. 카드 데이터 편입 후에도 O/D·정류장 통계에는 반영되지 않는 것으로 추정(간접 증거 3개). 자동차 등록은 동 단위가 없고 구 단위는 등록지 왜곡 |
-| 최선의 추정 | 가정 하에서 똑버스 이용 중 기존 대중교통에서 넘어온 비율 0~36% (참고용) |
-| 탄소 | 똑버스가 탄소를 줄이려면 이용자 중 자가용 출신이 경유 차량은 중앙 가정에서 100% 초과(전원이 자가용 출신이어도 부족할 수 있음), 전기 차량 기준 약 42% 이상이어야 함. 현재 데이터로는 이 조건 충족 여부를 알 수 없음 |
+- 2026-09-01~14의 4개 노선 합계는 하루 평균 약 2,015건입니다. 중복 없는 이용자 수가 아닙니다.
+- 02번 2024-09→2025-12 O/D 비교에서 월별 평균거리<3km 대상은 보정 차이 −147.1건/일, 전후 공통 쌍을 기준월 거리로 고정한 대상은 +43.3건/일입니다. 두 집계는 대상이 달라지며 인과효과가 아닙니다.
+- O/D 평균거리는 개별 통행거리 분포가 아닙니다. 미관측 쌍은 0으로 채우지 않습니다.
+- 01번의 공식 정식 개통(2023-06-07)과 작성자 STCIS 조회 시작(2024-04)에는 약 10개월 차이가 있습니다. 조회 공백의 원인·소급 갱신 여부와 O/D의 DRT 포함·환승·위치 귀속은 기관 확인이 필요합니다.
+- 일반 승합차 운행 조건을 가정한 탄소 손익분기 자가용 대체 **직결 여객km** 비중은 중앙값 경유 111%, 전기 42%입니다. 실제 노선 성과나 이용자 비율이 아닙니다.
 
-## 데이터
+![거리 기준 민감도](figures/fig3_validation_did.png)
 
-모두 공개 통계이며 원본을 `data/raw/`에 포함했습니다.
+상세 결과: [docs/findings.md](docs/findings.md). 양식별 보고서 문안: [docs/submission_report.md](docs/submission_report.md). 기관 문의 초안: [docs/inquiry_drafts.md](docs/inquiry_drafts.md).
 
-| 폴더 | 출처 | 받는 방법 |
+## 데이터와 재현
+
+공개 다운로드 원본은 `data/raw/`에 있습니다. 원본 목록·SHA256은 `data/processed/source_manifest.csv`에 기록하며, 수집 시각은 미기록으로 표시합니다. 목록에는 보조·초기 검증 자료도 포함되어 있습니다.
+
+| 자료 | 제공기관·플랫폼 | 분석 범위 |
 |---|---|---|
-| `route_usage/` | [STCIS 교통카드 빅데이터](https://stcis.go.kr) 노선·정류장 지표 → 노선별 이용량 | 지역 수원시, 노선 1개씩, 기간 최대 14일. 파일명 `{노선}_{시작일}_{종료일}.xlsx` |
-| `od_monthly/` | STCIS 이용객수요(O/D) 지표 | 출발 읍면동 1개 선택, 도착 전체, 기간 1개월(월 합계). 파일명 `od_{출발동}_{YYYY-MM}.xlsx` |
-| `car_registration/` | [국토교통 통계누리](https://stat.molit.go.kr) 자동차등록대수현황 시군구별 | 2022-01 ~ 2026-08, CSV |
-| `user_type/` | STCIS 수단통행량(이용자유형별) | 수원시 읍면동 전체, 2025-09-01~14 |
-| `population/` | [행정안전부 주민등록 인구통계](https://jumin.mois.go.kr) | 수원시 구·행정동, 월간, 2022-01 ~ 2026-08 |
+| 노선별 이용량 | 국토교통부·한국교통안전공단, [STCIS](https://stcis.go.kr) | 27개 엑셀, 2024-05~2026-09 중 선택 기간, 노선별 3~14일 등 |
+| 읍면동 O/D | STCIS | 48개 엑셀, 2024-03·05·09, 2025-04·05·12 중 출발동별 선택 자료 |
+| 자동차등록현황 | 국토교통부, [국토교통 통계누리](https://stat.molit.go.kr) | 2022-01~2026-08 시군구별 |
+| 주민등록인구 | 행정안전부, [주민등록 인구통계](https://jumin.mois.go.kr) | 2022-01~2026-08 수원 구·동 |
+| 이용자유형별 버스 수단통행량 | STCIS | 2025-09-01~14, 평일 집계 보조 비교 |
 
-STCIS Open API(15분단위 OD)는 초기 검증에 사용했습니다. 사양과 호출 시 주의사항은 [`docs/api_spec.md`](docs/api_spec.md) 참고.
-
-## 실행
+Python 3.12에서 검증했습니다. 인터넷/API 키 없이 보관 원본으로 본 분석을 실행할 수 있습니다.
 
 ```bash
-pip install -r requirements.txt
-bash run_all.sh        # Windows: run_all.sh 안의 python 명령을 순서대로 실행
+python -m pip install -r requirements.txt
+python run_all.py
+python -m unittest discover -s tests -v
 ```
 
-Windows PowerShell에서 한글 출력이 깨지면 먼저 `$env:PYTHONIOENCODING='utf-8'`를 실행하세요.
+Windows 실행 래퍼는 `.\run_all.ps1`, Bash 래퍼는 `bash run_all.sh`입니다. 모두 같은 `run_all.py`를 실행합니다.
 
-## 분석 흐름
+Windows PowerShell 한글 출력 설정: `$env:PYTHONIOENCODING='utf-8'`. Linux/macOS에서는 `bash run_all.sh`도 같은 파이프라인을 실행합니다. 한글 그림에는 맑은 고딕·AppleGothic·나눔고딕·Noto Sans CJK 중 하나가 필요합니다.
 
-| 순서 | 스크립트 | 결과 (`data/processed/`) |
-|---|---|---|
-| 1 | `merge_route_usage.py` | `route_usage.csv`, `route_usage_daily.csv` |
-| 2 | `repair_car_registration.py` | `car_registration_sigungu.csv` — 원본 CSV의 따옴표 없는 천 단위 쉼표를 차종·구분 합계 규칙으로 복원 |
-| 3 | `build_population.py` | `population_suwon.csv` |
-| 4 | `build_od_monthly.py` | `od_monthly_raw.csv`, `od_monthly_metrics.csv` |
-| 5 | `analysis_route_profiles.py` | `route_period_summary.csv`, `route_hourly_weekday.csv`, `vacation_comparison.csv` |
-| 6 | `analysis_od_validation.py` | `od_validation_01.csv` — O/D에 똑버스가 포함되는지 01번 자연실험 |
-| 7 | `analysis_od_did.py` | `did_results.csv` — 기존 대중교통 잠식률 DiD, 기준월 민감도 |
-| 8 | `analysis_car_registration.py` | `car_per_capita_gu.csv` |
-| 9 | `analysis_carbon_breakeven.py` | `carbon_breakeven_scenarios.csv`, `carbon_breakeven_curve.csv` — 탄소 손익분기 자가용 대체율 |
-| 10 | `analysis_user_type.py` | `teen_share_bus.csv` — 일반 버스 청소년 비중(동·구역별) vs 똑버스 |
-| 11 | `make_figures.py` | `figures/fig1~5.png` |
+## 실행 흐름
 
-공통 설정(운행 구역 법정동, 비교군, 운행 개시일, 공휴일)은 `src/config.py`에 있습니다.
+`run_all.py`는 다음 12단계를 순서대로 실행하고 실패하면 중단합니다.
 
-### 운행 구역 정의
+1. `merge_route_usage`: 원본 시간대 합계·요일 검증, 충돌 중복 거부, 휴일·시범운행 표시
+2. `repair_car_registration`: 합계 제약으로 CSV 복원, 실패 행 발생 시 중단
+3. `build_population`: 수원 인구 정리
+4. `build_od_monthly`: O/D 전체 지역 키·수치 검증, 지표 집계
+5. `analysis_route_profiles`: 관측일수·평일·주말·시간대·계절별 비교
+6. `analysis_od_validation`: 광교 관측 변화와 가정별 포착 시나리오 분리
+7. `analysis_od_did`: 240개 탐색적 조합, 수준 차분·비율 보정 차이, 거리·비교군 민감도
+8. `analysis_car_registration`: 구별 인구당 자동차 등록 재고
+9. `analysis_carbon_breakeven`: 가정표·조건부 손익분기·단일 변수 민감도
+10. `analysis_user_type`: 시기·요일이 다른 이용자 유형 보조 비교
+11. `analysis_quality`: 원본 해시, 중복·합계 검증, 실행 환경 기록
+12. `make_figures`: 보고서 그림 5개
 
-똑버스는 STCIS에 노선마다 기점·종점만 등록되어 있어 정류장 네트워크를 재구성할 수 없습니다. 그래서 노선별 운행 구역을 법정동 단위로 정의했습니다 (`data/processed/ddok_zone_dongs.csv`).
+검증 결과는 `data/processed/quality_checks.json`, 거리 대상 포착률은 `od_pair_coverage.csv`, 경계 이동은 `od_distance_crossings.csv`에 저장합니다. 자료 없는 똑버스 월 평균은 보간하지 않습니다.
 
-| 노선 | 운행 구역(법정동) | 운행 개시 |
-|---|---|---|
-| 01 광교 | 이의동, 하동, 상광교동, 하광교동 | 2023-06-07 |
-| 02 평동·고색 | 평동, 고색동, 오목천동 | 2024-10-08 |
-| 03 당수·입북·금곡 | 금곡동, 당수동, 입북동 | 2025-06-17 |
-| 04 곡정·아이파크시티 | 권선동, 곡반정동 | 2026-02-01 |
+## 공간·기간 해석
 
-비교군: 정자동, 조원동, 매탄동, 세류동 (똑버스 미운행 주거지)
+분석 구역은 노선 운영 범위를 법정동으로 근사한 것이며 개별 승차 좌표가 아닙니다. 비교 출발동은 정자·조원·매탄·세류동입니다. 구역내 지표에서는 처리군의 여러 동 간 통행과 비교군의 동내 통행 범위가 다를 수 있어 동내부 지표도 별도로 비교합니다. 미운행 및 반사실 대표성은 기관·운영 변경 자료로 추가 확인해야 합니다. sparse한 선택 월로 평행추세를 입증하지 않았습니다.
 
-### 초기 검증 스크립트 (API)
+2025-06-10~14의 03번 자료는 시범운행입니다. [경기도 발표](https://gnews.gg.go.kr/briefing/brief_gongbo_view.do?BS_CODE=s017&number=66228&subject_Code=BO01)는 6월 17일 정식 개통을 명시합니다. 관측이 연속 전 기간을 포괄하지 않으므로 정착에 필요한 최소 기간을 단정하지 않습니다.
 
-| 파일 | 설명 |
-|---|---|
-| `src/test_od_api.py` | 15분단위 OD API 동작 확인 (읍면동 단위, 과거 데이터 범위) |
-| `src/build_ddok_stops.py` | 똑버스 노선별 등록 지점과 좌표 → `ddok_stops.csv` |
-| `src/verify_od_zone_test.py` | 02번 도입 전후 처리군·비교군 OD 비교 (API) |
-| `src/verify_od_gwanggyo_test.py` | 01번 광교 통행 포함 여부 (API, 웹 O/D로 대체) |
+## 한계와 추가 자료
 
-## 한계
+이용 건수로 이전 교통수단·통행 목적·청소년 이동권 개선을 확정할 수 없습니다. 계절 차이에는 날씨·학교 일정·운영 변경 등이 함께 작용할 수 있습니다. 자동차 등록은 실제 자동차 통행량이 아닙니다. 탄소 모델은 경유 연소CO2·전력 소비단CO2eq의 운영 배출 근사 비교하며 공차·우회·거리 평균 재차인원·운영 조건은 가정이며 전력계수는 공식 소비단 계수입니다. 조사 응답자 비중과 대체 여객km 비중도 구분합니다.
 
-- O/D에 똑버스가 빠져 있다는 판단은 간접 증거에 근거하며 운영기관 확인 전입니다.
-- 잠식률 추정은 비교군 평행추세 가정에 의존하고, 효과 크기가 월별 변동과 비슷해 범위로만 제시합니다.
-- 노선별 이용량은 승차 기준이며 이용자 유형(청소년 등) 구분이 공개되지 않습니다.
+초기 API 실험 스크립트와 [docs/api_spec.md](docs/api_spec.md)는 참고 자료이며 전체 재현 단계에 포함되지 않습니다. 호출 제한 경험을 공식 사양으로 해석하지 않습니다.
+
+
+01번: 공식 정식 개통 2023-06-07, 작성자 STCIS 조회 시작 2024-04의 약 10개월 차이를 `fig2_data_blindspot.png`에 표시합니다. 소급 수록·원인은 기관 확인 전입니다. 광교 청소년 비중 20.3%와 일반 버스 5.7%는 시기·요일이 다른 보조 비교입니다. 경유 중앙은 공차 비율 0일 때 79%, 0.4일 때 111%이며 전체 불확실성 범위가 아닙니다.

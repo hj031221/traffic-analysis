@@ -1,0 +1,17 @@
+{
+  "route_files": 27,
+  "od_files": 48,
+  "route_days": 345,
+  "hourly_rows": 6189,
+  "od_rows": 38332,
+  "duplicate_route_keys": 0,
+  "duplicate_od_keys": 0,
+  "daily_sum_mismatch": 0,
+  "python": "3.12.14",
+  "packages": {
+    "pandas": "3.0.1",
+    "numpy": "2.3.5",
+    "openpyxl": "3.1.5",
+    "matplotlib": "3.11.2"
+  }
+}

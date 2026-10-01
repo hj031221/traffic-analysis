@@ -74,6 +74,8 @@ def main():
             failed.append((len(sols), line[:60]))
 
     header = ["월", "시도", "시군구"] + [f"{c}_{s}" for c in CATS for s in SUBS]
+    if failed:
+        raise ValueError(f"복원 실패 {len(failed)}행. 기존 결과를 덮어쓰지 않습니다: {failed[:3]}")
     out = PROCESSED / "car_registration_sigungu.csv"
     with open(out, "w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f)

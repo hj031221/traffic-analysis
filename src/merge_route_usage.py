@@ -17,9 +17,23 @@ import re
 
 import pandas as pd
 
-from config import HOLIDAYS, PROCESSED, RAW
+from config import HOLIDAYS, PROCESSED, RAW, ROUTES, TRIAL_STARTS
 
 DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})\((.)\)")
+
+
+def strict_counts(series):
+    values = pd.to_numeric(series, errors="raise")
+    if values.isna().any() or (values < 0).any() or (values % 1 != 0).any():
+        raise ValueError("이용량은 결측 없는 0 이상의 정수여야 합니다.")
+    return values.astype("int64")
+
+
+def deduplicate(frame):
+    keys = ["노선", "날짜", "시간대"]
+    if frame.groupby(keys)["이용량"].nunique(dropna=False).gt(1).any():
+        raise ValueError("같은 노선·날짜·시간대의 이용량이 파일 간 충돌합니다.")
+    return frame.drop_duplicates(keys)
 
 
 def parse_one_file(path):
@@ -33,10 +47,16 @@ def parse_one_file(path):
     df = df[df["날짜"].notna()]
 
     hour_cols = [c for c in df.columns if str(c).isdigit()]
+    hours = df[hour_cols].apply(strict_counts)
+    if not hours.sum(axis=1).eq(strict_counts(df["합계"])).all():
+        raise ValueError(f"{path.name}: 시간대 합계와 원본 합계가 다릅니다.")
+    dates = pd.to_datetime(df["날짜"], errors="raise")
+    if not dates.dt.dayofweek.map(dict(enumerate("월화수목금토일"))).eq(df["요일"]).all():
+        raise ValueError(f"{path.name}: 날짜와 요일이 다릅니다.")
     long_df = df.melt(id_vars=["노선", "기종점", "날짜", "요일"], value_vars=hour_cols,
                       var_name="시간대", value_name="이용량")
     long_df["시간대"] = long_df["시간대"].astype(int)
-    long_df["이용량"] = pd.to_numeric(long_df["이용량"], errors="coerce").fillna(0).astype(int)
+    long_df["이용량"] = strict_counts(long_df["이용량"])
     return long_df
 
 
@@ -47,7 +67,7 @@ def main():
 
     df = pd.concat([parse_one_file(f) for f in files], ignore_index=True)
     df["노선"] = df["노선"].str[-2:]  # '수원똑버스01' -> '01'
-    df = df.drop_duplicates(["노선", "날짜", "시간대"]).sort_values(["노선", "날짜", "시간대"])
+    df = deduplicate(df).sort_values(["노선", "날짜", "시간대"])
     df.to_csv(PROCESSED / "route_usage.csv", index=False, encoding="utf-8-sig")
 
     daily = df.groupby(["노선", "날짜", "요일"], as_index=False)["이용량"].sum()
@@ -55,6 +75,10 @@ def main():
     daily["공휴일"] = daily["날짜"].isin(HOLIDAYS)
     daily["평일"] = ~daily["주말"] & ~daily["공휴일"]
     daily["기간"] = daily["날짜"].str[:7]
+    daily["운행단계"] = daily.apply(lambda r: (
+        "정식운행" if r["날짜"] >= ROUTES[r["노선"]]["service_start"]
+        else "시범운행" if r["날짜"] >= TRIAL_STARTS.get(r["노선"], ROUTES[r["노선"]]["service_start"])
+        else "개통전_자료기록"), axis=1)
     daily.to_csv(PROCESSED / "route_usage_daily.csv", index=False, encoding="utf-8-sig")
 
     print(f"{len(files)}개 파일 -> {len(df):,}행, 노선별 날짜 수:")

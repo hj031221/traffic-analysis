@@ -1,54 +1,38 @@
+"""01번 노선자료 식별 시점 전후의 관측 비교 및 조건부 기대값.
+
+O/D에 DRT가 빠졌다는 사실이나 '행태 불변'을 입증하지 않는다. 노선 승차
+표본 중 선택 구역과 O/D 정의에 대응하는 비율 q를 알 수 없으므로 여러 q의
+조건부 기대값을 별도 저장한다. 기관의 수록·환승·공간 귀속 정의 확인이 필요하다.
 """
-검증: 교통카드 O/D 통계에 똑버스 통행이 포함되는가? (01번 광교 자연실험)
-
-01번은 2023-06부터 운행했지만 STCIS 노선별 이용량에는 2024-04부터 나타난다.
-즉 2024-03 -> 2024-05 사이 '실제 이동 행태'는 그대로인데 교통카드 데이터에만
-하루 약 212명(2024-05 노선별 이용량)이 새로 들어왔다.
-O/D 통계에 똑버스가 포함된다면 광교 구역 내부 통행이 그만큼 늘어야 한다.
-
-비교: 처리군(이의동·하동 출발 -> 01 구역 도착) vs 비교군(정자동·매탄동 출발 -> 같은 동 도착)
-입력: data/processed/od_monthly_raw.csv, route_period_summary.csv
-출력: data/processed/od_validation_01.csv
-"""
-
 import pandas as pd
-
 from config import PROCESSED, ZONES
 
 PRE, POST = "2024-03", "2024-05"
-DAYS = {"2024-03": 31, "2024-05": 31}
 
 
 def main():
-    raw = pd.read_csv(PROCESSED / "od_monthly_raw.csv", dtype={"일자": str})
-    raw = raw[raw["일자"].isin([PRE, POST]) & (raw["시군구(도착)"] == "수원시")]
-
-    zone = ZONES["01"]
-    treat = raw[raw["읍면동(출발)"].isin(["이의동", "하동"]) & raw["읍면동(도착)"].isin(zone)]
+    raw = pd.read_csv(PROCESSED / "od_monthly_raw.csv")
+    raw = raw[raw["일자"].isin([PRE, POST]) & raw["시군구(도착)"].eq("수원시")]
+    treat = raw[raw["읍면동(출발)"].isin(["이의동", "하동"]) & raw["읍면동(도착)"].isin(ZONES["01"])]
     ctrl = raw[raw["읍면동(출발)"].isin(["정자동", "매탄동"])
-               & (raw["읍면동(도착)"] == raw["읍면동(출발)"])]
-
-    t = treat.groupby("일자")["통행량"].sum() / 31
-    c = ctrl.groupby("일자")["통행량"].sum() / 31
-
+               & raw["읍면동(도착)"].eq(raw["읍면동(출발)"])]
+    t, c = treat.groupby("일자")["통행량"].sum() / 31, ctrl.groupby("일자")["통행량"].sum() / 31
     summary = pd.read_csv(PROCESSED / "route_period_summary.csv", dtype={"노선": str})
-    drt = summary[(summary["노선"] == "01") & (summary["기간"] == POST)]["일평균"].iloc[0]
-
-    expected_if_included = t[PRE] * (c[POST] / c[PRE]) + drt
-    res = pd.DataFrame([
-        {"구분": "처리군 (광교 구역 내부)", "2024-03": t[PRE], "2024-05": t[POST],
-         "변화율(%)": (t[POST] / t[PRE] - 1) * 100},
-        {"구분": "비교군 (정자·매탄 동 내부)", "2024-03": c[PRE], "2024-05": c[POST],
-         "변화율(%)": (c[POST] / c[PRE] - 1) * 100},
-        {"구분": "처리군 기대값 (OD에 똑버스 포함 시)", "2024-03": t[PRE], "2024-05": expected_if_included,
-         "변화율(%)": (expected_if_included / t[PRE] - 1) * 100},
-    ]).round(1)
-    res.to_csv(PROCESSED / "od_validation_01.csv", index=False, encoding="utf-8-sig")
-
-    print(f"01번 2024-05 하루 평균 이용: {drt:.0f}명")
-    print(res.to_string(index=False))
-    gap = t[POST] - t[PRE] * (c[POST] / c[PRE])
-    print(f"\n비교군 대비 처리군 변화(하루): {gap:+.0f}건  (포함된다면 약 +{drt:.0f}건 기대)")
+    s = summary[summary["노선"].eq("01") & summary["기간"].eq(POST)].iloc[0]
+    drt = float(s["일평균"])
+    rows = [{"구분": name, "2024-03": x[PRE], "2024-05": x[POST],
+             "변화율(%)": (x[POST] / x[PRE] - 1) * 100}
+            for name, x in [("광교선택구역_관측", t), ("정자매탄_동내부_관측", c)]]
+    pd.DataFrame(rows).to_csv(PROCESSED / "od_validation_01.csv", index=False, encoding="utf-8-sig")
+    base = t[PRE] * c[POST] / c[PRE]
+    scenarios = [{"포착률가정_q": q, "조건부기대_일": base + q * drt,
+                  "실제관측_일": t[POST], "노선01_관측일평균": drt,
+                  "노선01_관측기간": f"{s['관측시작']}~{s['관측끝']}",
+                  "주의": "q미확인_행태불변미검증_통행정의미확인_수록여부판정불가"}
+                 for q in [0, .25, .5, .75, 1]]
+    pd.DataFrame(scenarios).to_csv(PROCESSED / "od_validation_scenarios.csv", index=False, encoding="utf-8-sig")
+    print(pd.DataFrame(rows).round(2).to_string(index=False))
+    print(f"비교군 비율 보정 차이 {t[POST] - base:.2f}건/일. O/D 미반영 증명으로 해석하지 않음.")
 
 
 if __name__ == "__main__":

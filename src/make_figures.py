@@ -2,11 +2,11 @@
 보고서용 그림 생성 (PNG, 300dpi). 모든 analysis_*.py 실행 후 사용.
 
 fig1_route_types.png      : 노선별 평일 시간대 패턴, 개학(9월) vs 여름방학(8월)
-fig2_data_blindspot.png   : 운행 기간 vs 데이터 수록 기간 타임라인
-fig3_validation_did.png   : (a) 01 자연실험 (b) 기존 대중교통 잠식률 민감도
+fig2_data_blindspot.png   : 01번 정식 운행과 STCIS 조회 시작의 시간차
+fig3_validation_did.png   : 거리 기준에 따른 분석대상 변경의 민감도
 fig4_car_per_capita.png   : 구별 인구 천 명당 승용 자가용 (부록)
 
-색: 범주형 슬롯 1~4 (검증된 팔레트, 인접 쌍 CVD ΔE >= 9.1). 대비가 낮은 슬롯은 직접 라벨 병기.
+색과 직접 라벨·선 모양을 함께 사용한다.
 """
 
 import matplotlib.dates as mdates
@@ -61,23 +61,23 @@ def fig1():
         vacd = wk[(wk["노선"] == route) & (wk["기간"] == "2026-08")]
         ax.axvspan(6.5, 8.5, color=GRID, alpha=0.5, lw=0)
         ax.axvspan(15.5, 16.5, color=GRID, alpha=0.5, lw=0)
-        ax.plot(term["시간대"], term["이용량"], color=S1, marker="o", ms=3, label="개학 중 (2026-09)")
-        ax.plot(vacd["시간대"], vacd["이용량"], color=S2, marker="o", ms=3, ls="--", label="여름방학 (2026-08)")
+        ax.plot(term["시간대"], term["이용량"], color=S1, marker="o", ms=3, label="9월 1~14일")
+        ax.plot(vacd["시간대"], vacd["이용량"], color=S2, marker="o", ms=3, ls="--", label="8월 1~14일")
 
         ratio = summ[(summ["노선"] == route) & (summ["기간"] == "2026-09")]["평일/주말"].iloc[0]
         v = vac[(vac["노선"] == route) & (vac["개학중"] == "2026-09")].iloc[0]
         ax.set_title(f"{label(route)}", loc="left")
-        ax.text(0.02, 0.97, f"평일/주말 이용 {ratio:.1f}배\n등하교 시간대 방학 중 {v['피크_변화율']:+.0f}%",
+        ax.text(0.02, 0.97, f"평일/주말 이용 {ratio:.1f}배\n7·8·16시의 8월/9월 차이 {v['피크_변화율']:+.0f}%",
                 transform=ax.transAxes, va="top", fontsize=8, color=INK2)
         ax.set_ylim(0, max(term["이용량"].max(), vacd["이용량"].max()) * 1.35)
     for ax in axes[1]:
         ax.set_xlabel("시각")
         ax.set_xticks(range(6, 24, 2))
     for ax in axes[:, 0]:
-        ax.set_ylabel("평일 시간당 이용 (명)")
+        ax.set_ylabel("평일 시간당 승차 집계 (건)")
     h, l = axes[0, 0].get_legend_handles_labels()
     fig.legend(h, l, loc="upper center", ncol=2, bbox_to_anchor=(0.5, 1.02))
-    fig.text(0.5, -0.02, "음영: 등하교 시간대(7·8시, 16시). 자료: STCIS 노선별 이용량(각 월 1~14일, 공휴일 제외 평일 평균)",
+    fig.text(0.5, -0.02, "음영: 7·8·16시. STCIS 노선별 이용량, 휴일 제외 평일 평균. 계절별 관측 차이이며 이용 목적·연령을 확정하지 않음.",
              ha="center", fontsize=7.5, color=MUTED)
     fig.tight_layout(rect=(0, 0, 1, 0.95))
     save(fig, "fig1_route_types.png")
@@ -85,89 +85,53 @@ def fig1():
 
 # ---- 그림 2 -----------------------------------------------------------------
 def fig2():
-    end = pd.Timestamp("2026-09-30")
-    fig, ax = plt.subplots(figsize=(7.2, 2.9))
-    routes = ["01", "02", "03", "04"]
-    for i, route in enumerate(routes):
-        y = len(routes) - 1 - i
-        s = pd.Timestamp(ROUTES[route]["service_start"])
-        d = pd.Timestamp(ROUTES[route]["data_start"] + "-01")
-        d = max(d, s)
-        # 운행 기간 (회색 테두리 막대)
-        ax.barh(y + 0.18, (end - s).days, left=s, height=0.3, color=SURFACE, edgecolor=MUTED, lw=1)
-        # 노선 통계 수록 기간
-        ax.barh(y + 0.18, (end - d).days, left=d, height=0.3, color=S1, edgecolor=SURFACE, lw=1)
-        # OD·정류장 통계: 반영 확인 안 됨
-        ax.barh(y - 0.18, (end - s).days, left=s, height=0.3, color="none", edgecolor=S2,
-                hatch="////", lw=1)
-        if (d - s).days > 60:
-            ax.annotate(f"교통카드 데이터 미수록\n약 {round((d - s).days / 30)}개월",
-                        xy=(s + (d - s) / 2, y + 0.18), xytext=(0, 14), textcoords="offset points",
-                        ha="center", fontsize=7.5, color=INK, arrowprops=dict(arrowstyle="-", color=MUTED, lw=0.8))
-    ax.set_yticks(range(len(routes)))
-    ax.set_yticklabels([label(r) for r in reversed(routes)])
-    ax.set_xlim(pd.Timestamp("2023-04-01"), end + pd.Timedelta(days=20))
-    ax.set_ylim(-0.6, len(routes) - 0.2)
-    ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=[1, 7]))
+    fig, ax = plt.subplots(figsize=(7.2, 2.6))
+    start = pd.Timestamp(ROUTES["01"]["service_start"])
+    observed = pd.Timestamp(ROUTES["01"]["data_start"] + "-01")
+    end = pd.Timestamp("2024-06-30")
+    ax.axvspan(start, observed, color=S2, alpha=.13, lw=0)
+    ax.plot([start, end], [1, 1], color=S1, lw=7, solid_capstyle="butt")
+    ax.plot([observed, end], [0, 0], color=S3, lw=7, solid_capstyle="butt")
+    ax.scatter([start, observed], [1, 0], color=[S1, S3], s=25, zorder=3)
+    ax.text(start, 1.16, "정식 운행 2023-06-07", fontsize=8, color=INK)
+    ax.text(observed, .17, "조회 시작 2024-04", fontsize=8, color=INK)
+    ax.text(start + (observed - start) / 2, .42, "약 10개월의 조회 공백", ha="center", fontsize=10, weight="bold", color=INK)
+    ax.set_yticks([0, 1], ["STCIS 노선 통계\n(작성자 조회 기록)", "01 광교 실제 운행\n(정식 개통 발표)"])
+    ax.set_ylim(-.35, 1.4)
+    ax.set_xlim(pd.Timestamp("2023-05-20"), end)
+    ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y.%m"))
+    ax.set_title("보이지 않는 버스: 운행 시작과 노선 통계 조회 시작의 차이", loc="left", pad=12)
     ax.grid(axis="y", visible=False)
-    from matplotlib.patches import Patch
-    ax.legend(handles=[
-        Patch(facecolor=SURFACE, edgecolor=MUTED, label="실제 운행 기간"),
-        Patch(facecolor=S1, edgecolor=SURFACE, label="노선별 이용량 통계에 수록"),
-        Patch(facecolor="none", edgecolor=S2, hatch="////", label="O/D·정류장 통계: 반영 확인 안 됨"),
-    ], loc="upper center", bbox_to_anchor=(0.5, 1.22), ncol=3, fontsize=8)
-    fig.text(0.5, -0.04, "자료: STCIS 노선별 이용량·이용객 O/D·정류장별 이용량, 경기도·수원시 보도자료(운행 개시일)",
-             ha="center", fontsize=7.5, color=MUTED)
+    ax.spines["left"].set_visible(False)
+    ax.tick_params(axis="y", length=0)
+    fig.text(.5, -.05, "운행 시작: 경기도(2023-05-29). 조회 시작: 작성자의 STCIS 확인 기록(소급 수록·원인 확인 전).\n공백은 실제 이용 0건을 뜻하지 않으며, STCIS 표시 구간의 연속 관측을 검증한 그림도 아님.",
+             ha="center", fontsize=7, color=INK2)
     fig.tight_layout()
     save(fig, "fig2_data_blindspot.png")
 
 
-# ---- 그림 3 -----------------------------------------------------------------
 def fig3():
-    val = pd.read_csv(PROCESSED / "od_validation_01.csv")
-    did = pd.read_csv(PROCESSED / "did_results.csv", dtype={"노선": str})
-    fig, (a, b) = plt.subplots(1, 2, figsize=(7.2, 3.6), gridspec_kw={"width_ratios": [1, 1.45]})
-
-    # (a) 01 자연실험
-    names = ["비교군\n실제", "광교 구역\n실제", "광교 구역\n기대값*"]
-    vals = [val.iloc[1]["변화율(%)"], val.iloc[0]["변화율(%)"], val.iloc[2]["변화율(%)"]]
-    colors = [MUTED, S1, "none"]
-    bars = a.bar(names, vals, color=colors, edgecolor=[MUTED, S1, S1], width=0.55, lw=1.2,
-                 hatch=["", "", "////"])
-    for r, v in zip(bars, vals):
-        a.text(r.get_x() + r.get_width() / 2, v + (0.4 if v >= 0 else -0.4), f"{v:+.1f}%",
-               ha="center", va="bottom" if v >= 0 else "top", fontsize=8.5, color=INK)
-    a.axhline(0, color=INK2, lw=0.8)
-    a.set_ylim(-3, 11)
-    a.set_ylabel("2024-03 → 05 통행 변화율")
-    a.set_title("(a) 똑버스 01 카드데이터 편입 전후", loc="left")
-    a.grid(axis="x", visible=False)
-
-    # (b) 잠식률 민감도
-    d = did[did["지표"].isin(["구역내부", "단거리3km"])].copy()
-    d["라벨"] = d["노선"] + " " + d["지표"].str.replace("단거리3km", "3km미만") + "  " + d["개통전"].str[2:].str.replace("-", ".") + "→" + d["개통후"].str[2:].str.replace("-", ".")
-    d = d.sort_values(["노선", "기준월_부적합", "지표", "개통전"]).reset_index(drop=True)
-    ok = d[~d["기준월_부적합"]]
-    lo, hi = ok["잠식률(%)"].clip(lower=0).min(), ok["잠식률(%)"].clip(lower=0).max()
-    b.axvspan(lo, hi, color=GRID, alpha=0.7, lw=0)
-    b.axvline(0, color=INK2, lw=0.8)
-    for i, r in d.iterrows():
-        c = ROUTE_COLOR[r["노선"]]
-        if r["기준월_부적합"]:
-            b.scatter(r["잠식률(%)"], i, s=36, facecolor=SURFACE, edgecolor=MUTED, zorder=3, lw=1.2)
-        else:
-            b.scatter(r["잠식률(%)"], i, s=36, color=c, edgecolor=SURFACE, zorder=3, lw=1.5)
-    b.set_yticks(range(len(d)))
-    b.set_yticklabels(d["라벨"], fontsize=7)
-    b.set_xlabel("잠식률 (%) = 기존 대중교통 감소분 ÷ 똑버스 이용")
-    b.set_title("(b) 기존 대중교통 잠식률 민감도", loc="left")
-    b.set_ylim(len(d) - 0.5, -1.3)
-    b.text((lo + hi) / 2, -0.85, f"기준월 적합 조합 범위 {lo}~{hi}%", ha="center", va="center", fontsize=7.5, color=INK)
-    b.grid(axis="y", visible=False)
-    fig.text(0.5, -0.06, "* O/D 통계에 똑버스가 포함됐을 경우의 기대값(비교군 추세 + 2024-05 똑버스 01 일평균 212명). "
-             "(b) 속 빈 점: 연휴가 많은 2025-05를 비교 시점으로 쓴 조합(참고용). 음수 = 기존 통행 증가",
-             ha="center", fontsize=7, color=MUTED, wrap=True)
+    d = pd.read_csv(PROCESSED / "did_results.csv", dtype={"노선": str})
+    d = d[(d["노선"] == "02") & (d["기준월"] == "2024-09")
+          & (d["비교월"] == "2025-12") & (d["비교군구성"] == "전체비교군")]
+    metrics = ["평균거리3km_가변", "평균거리3km_공통고정"]
+    vals = [d[d["지표"] == m]["비교군비율보정차_일"].iloc[0] for m in metrics]
+    fig, (ax, detail) = plt.subplots(1, 2, figsize=(7.2, 3.2), gridspec_kw={"width_ratios": [1, 1.25]})
+    ax.bar(["매월 대상 변경", "공통 쌍 기준월 고정"], vals, color=[S2, S1], width=.5)
+    ax.axhline(0, color=INK2, lw=.8)
+    for x, v in enumerate(vals):
+        ax.text(x, v + (7 if v >= 0 else -7), f"{v:+.1f}", ha="center", va="bottom" if v >= 0 else "top")
+    ax.set_ylim(-210, 100)
+    ax.set_ylabel("비교군 비율로 보정한 통행 차이 (건/일)")
+    ax.set_title("(a) 대상 정의에 따라 부호 변화", loc="left")
+    ax.tick_params(axis="x", labelsize=7.5)
+    detail.axis("off")
+    detail.set_title("(b) 오목천동 내부 쌍의 사례", loc="left")
+    detail.text(.02, .86, "2024-09: 평균거리 2,944m · 6,282건\n2025-12: 평균거리 3,020m · 5,903건\n\n가변 지표에서는 후월 5,903건 전체 제외\n→ 하루 190.4건의 분석대상 변화\n\n3km 미만 개별 통행량으로 해석할 수 없음\n공통 고정 집계도 인과효과·전환율이 아님",
+                va="top", fontsize=9, linespacing=1.65)
+    fig.text(.5, -.03, "02번 2024-09→2025-12. 고정 지표: 전후 공통 관측 쌍 중 기준월 평균거리<3km. 미관측 쌍은 0으로 대체하지 않음.",
+             ha="center", fontsize=7, color=INK2)
     fig.tight_layout()
     save(fig, "fig3_validation_did.png")
 
@@ -198,23 +162,23 @@ def fig5():
     c = pd.read_csv(PROCESSED / "carbon_breakeven_curve.csv")
     fig, ax = plt.subplots(figsize=(7.2, 3.3))
     ax.axvspan(2.43, 3.24, color=GRID, alpha=0.7, lw=0)
-    ax.text(2.835, 292, "수원 똑버스\n실제 평균 재차인원\n2.43~3.24명", ha="center", va="top", fontsize=7.5, color=INK2)
+    ax.text(2.835, 292, "거리 가중\n재차인원 가정 구간\n2.43~3.24명", ha="center", va="top", fontsize=7.5, color=INK2)
     ax.axhline(100, color=INK2, lw=0.9, ls=(0, (4, 3)))
-    ax.text(5.95, 104, "이용자 전원이 자가용에서 와야 본전", ha="right", va="bottom", fontsize=7.5, color=INK2)
+    ax.text(5.95, 104, "자가용 대체 직결 여객km가 100%인 경우", ha="right", va="bottom", fontsize=7.5, color=INK2)
     for fuel, col in [("경유", S1), ("전기", S2)]:
         d = c[c["차량"] == fuel]
         ax.fill_between(d["재차인원"], d["낙관"], d["비관"].clip(upper=300), color=col, alpha=0.15, lw=0)
-        ax.plot(d["재차인원"], d["중앙"], color=col)
-        y = d[d["재차인원"] == 4.6]["중앙"].iloc[0]
-        ax.text(4.65, y + 6, f"{fuel} 차량 (중앙값)", color=INK, fontsize=8, va="bottom")
+        ax.plot(d["재차인원"], d["중앙"], color=col, label=f"{fuel} (중앙, 공차 0.4)")
+        if fuel == "경유":
+            ax.plot(d["재차인원"], d["중앙_공차0"], color=col, ls="--", lw=1.5, label="경유 (중앙, 공차 0)")
+    ax.legend(loc="upper right", fontsize=8)
     ax.set_xlim(1, 6)
     ax.set_ylim(0, 300)
-    ax.set_xlabel("똑버스 평균 재차인원 (명)")
-    ax.set_ylabel("손익분기 자가용 대체율 (%)")
-    ax.set_title("똑버스가 탄소를 줄이려면 이용자 중 몇 %가 자가용에서 와야 하나", loc="left")
-    fig.text(0.5, -0.04, "음영: 낙관~비관 가정 범위(연비·전비, 승용차 배출, 우회·공차 비율). 일반 자가용 통행 대체 기준, 보호자 라이드 대체 시 절반. "
-             "자료: 수원시정연구원(2024), 에너지공단 배출계수, 전력배출계수(2023), 환경부",
-             ha="center", fontsize=7, color=MUTED, wrap=True)
+    ax.set_xlabel("공차 제외 거리 평균 재차인원 가정 (명)")
+    ax.set_ylabel("손익분기 자가용 대체 여객km 비중 (%)")
+    ax.set_title("탄소 손익분기: 운행 조건에 따른 대체 여객km 비중", loc="left")
+    fig.text(0.5, -0.04, "음영: 운행 가정 범위(신뢰구간 아님). 전력: 공식 0.4173kgCO2eq/kWh(2023년도, 2025-12 공표).\n공차=공차거리/탑승운행거리. 경유 연소CO2·전력CO2eq 근사 비교이며 실제 노선 성과 아님.",
+             ha="center", fontsize=7, color=INK2)
     fig.tight_layout()
     save(fig, "fig5_carbon_breakeven.png")
 

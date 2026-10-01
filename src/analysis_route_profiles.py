@@ -16,19 +16,22 @@ from config import PROCESSED, SCHOOL_PEAK_HOURS, VACATION_PAIRS
 def main():
     hourly = pd.read_csv(PROCESSED / "route_usage.csv", dtype={"노선": str})
     daily = pd.read_csv(PROCESSED / "route_usage_daily.csv", dtype={"노선": str})
-    hourly = hourly.merge(daily[["노선", "날짜", "평일", "기간"]], on=["노선", "날짜"])
+    hourly = hourly.merge(daily[["노선", "날짜", "평일", "기간"]], on=["노선", "날짜"], validate="many_to_one")
 
     summary = daily.groupby(["노선", "기간"]).apply(lambda g: pd.Series({
         "일수": len(g),
+        "관측시작": g["날짜"].min(), "관측끝": g["날짜"].max(),
+        "평일수": int(g["평일"].sum()), "주말수": int(g["주말"].sum()),
+        "휴일수": int(g["공휴일"].sum()),
+        "운행단계": ",".join(sorted(g["운행단계"].unique())),
         "일평균": g["이용량"].mean(),
         "평일평균": g.loc[g["평일"], "이용량"].mean(),
         "주말평균": g.loc[g["주말"], "이용량"].mean(),
-    }), include_groups=False).round(1).reset_index()
+    }), include_groups=False).reset_index()
     summary["평일/주말"] = (summary["평일평균"] / summary["주말평균"]).round(2)
     summary.to_csv(PROCESSED / "route_period_summary.csv", index=False, encoding="utf-8-sig")
 
-    wk = (hourly[hourly["평일"]].groupby(["노선", "기간", "시간대"])["이용량"].mean()
-          .round(1).reset_index())
+    wk = (hourly[hourly["평일"]].groupby(["노선", "기간", "시간대"])["이용량"].mean().reset_index())
     wk.to_csv(PROCESSED / "route_hourly_weekday.csv", index=False, encoding="utf-8-sig")
 
     rows = []
@@ -47,6 +50,7 @@ def main():
             "피크_변화율": round((b[peak].sum() / a[peak].sum() - 1) * 100, 1),
             "나머지_변화율": round((b[rest].sum() / a[rest].sum() - 1) * 100, 1),
             "피크_감소량": round(a[peak].sum() - b[peak].sum()),
+            "해석": "계절별시간대차이_통학비중아님",
         })
     vac = pd.DataFrame(rows)
     vac.to_csv(PROCESSED / "vacation_comparison.csv", index=False, encoding="utf-8-sig")
